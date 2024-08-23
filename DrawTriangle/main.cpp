@@ -45,7 +45,7 @@ private:
     */
 
     void createInstance(){
-        VkApplicationInfo appInfo;                              //Optional application info handle for diagnostics
+        VkApplicationInfo appInfo{};                              //Optional application info handle for diagnostics
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "Hello Triangle";
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -53,13 +53,18 @@ private:
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         appInfo.apiVersion = VK_API_VERSION_1_0;
 
+        uint32_t glfwExtensionCount = 0;
+        const char** glfwExtensions;
+        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-        VkInstanceCreateInfo createInfo;                           //Tell Vulkan driver which global extensions and validation layers we want to use
+
+        VkInstanceCreateInfo createInfo{};                           //Tell Vulkan driver which global extensions and validation layers we want to use
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
+        createInfo.enabledExtensionCount = glfwExtensionCount;
+        createInfo.ppEnabledExtensionNames = glfwExtensions;
+        createInfo.enabledLayerCount = 0;
 
-        uint32_t glfwExtensionCount = 0;
-        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance); 
 
         if(vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS){
             throw std::runtime_error("failed to create instance");
