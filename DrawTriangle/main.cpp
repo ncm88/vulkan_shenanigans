@@ -59,7 +59,11 @@ private:
         createInfo.pApplicationInfo = &appInfo;
 
         uint32_t glfwExtensionCount = 0;
-        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);           
+        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance); 
+
+        if(vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS){
+            throw std::runtime_error("failed to create instance");
+        }          
     }
 
 
@@ -74,6 +78,7 @@ private:
     }
 
     void cleanup() {                //Get rid of all redundant objects explicitly
+        vkDestroyInstance(instance, nullptr);
         glfwDestroyWindow(window);
         glfwTerminate();
     }
