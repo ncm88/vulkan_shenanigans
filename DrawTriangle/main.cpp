@@ -1,11 +1,6 @@
 /*
 Basic Process:
 
-1) Create window
-
-2) Build appInfo struct (optional)
-
-3) Build VkInstanceCreateInfo struct for passing to VkInstance constructor
 */
 
 
@@ -19,6 +14,10 @@ Basic Process:
 #include <vector>
 
 
+const uint32_t WIDTH = 800;
+const uint32_t HEIGHT = 600;
+
+
 const std::vector<const char*> validationLayers = {     //Like extensions, validation layers need to be enabled by specifying their name
     "VK_LAYER_KHRONOS_validation"
 };
@@ -30,10 +29,32 @@ const std::vector<const char*> validationLayers = {     //Like extensions, valid
 #endif
 
 
+VkResult CreateDebugUtilsMessengerEXT(  //used because we need to lookup the vkGetInstanceProcAddr function as it is an extension function (this is a proxy function)
+    VkInstance vinstance, 
+    const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
+    const VkAllocationCallbacks* pAllocator, 
+    VkDebugUtilsMessengerEXT* pDebugMessenger
+){
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(vinstance, "vkCreateDebugUtilsMessengerEXT");
+
+    if(func != nullptr){
+        return func(vinstance, pCreateInfo, pAllocator, pDebugMessenger);
+    } else {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
 
 
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
+void DestroyDebugUtilsMessengerEXT(
+    VkInstance instance,
+    VkDebugUtilsMessengerEXT debugMessenger,
+    const VkAllocationCallbacks* pAllocator
+){
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if(func != nullptr){
+        func(instance, debugMessenger, pAllocator);
+    }
+}
 
 
 class HelloTriangleApplication {
@@ -48,7 +69,7 @@ public:
 private:
     GLFWwindow* window;
     VkInstance instance;
-    VkDebugUtilsLabelEXT debugMessenger;
+    VkDebugUtilsMessengerEXT debugMessenger;
 
 
     void initWindow(){
@@ -59,6 +80,31 @@ private:
 
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
     }
+
+
+    void initVulkan() {
+        createInstance();
+        setupDebugMessenger();
+    }
+
+
+    void mainLoop() {
+        while(!glfwWindowShouldClose(window)){  //update window until close cmd or error received
+            glfwPollEvents();
+        }
+    }
+
+
+    void cleanup() {                //Get rid of all redundant objects explicitly
+        if(enableValidationLayers){
+            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        }
+        vkDestroyInstance(instance, nullptr);
+        
+        glfwDestroyWindow(window);
+        glfwTerminate();
+    }
+
 
     
     /*
@@ -86,12 +132,13 @@ private:
             const char** glfwExtensions;
             glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-            VkInstanceCreateInfo createInfo{};                           //Tell Vulkan driver which global extensions and validation layers we want to use
+            VkInstanceCreateInfo createInfo{};                           //Tell Vulkan driver which global extensions and validation layers we want to use; <-extension info struct
             createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
             createInfo.pApplicationInfo = &appInfo;
             createInfo.enabledExtensionCount = glfwExtensionCount;
             createInfo.ppEnabledExtensionNames = glfwExtensions;
             createInfo.enabledLayerCount = 0;
+
 
             if(enableValidationLayers){
                 createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -109,32 +156,26 @@ private:
             }
         }          
     }
-    
 
-    void initVulkan() {
-        createInstance();
-        setupDebugMessenger();
+
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo){
+        createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        createInfo.pfnUserCallback = debugCallback;
     }
+
 
     void setupDebugMessenger() {
         if(!enableValidationLayers) return;
-    }
 
+        VkDebugUtilsMessengerCreateInfoEXT createInfo;
+        populateDebugMessengerCreateInfo(createInfo);
 
-
-
-
-    void mainLoop() {
-        while(!glfwWindowShouldClose(window)){  //update window until close cmd or error received
-            glfwPollEvents();
+        if(CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS){
+            throw std::runtime_error("failed to set up debug messenger");
         }
-    }
-
-
-    void cleanup() {                //Get rid of all redundant objects explicitly
-        vkDestroyInstance(instance, nullptr);
-        glfwDestroyWindow(window);
-        glfwTerminate();
     }
 
 
@@ -178,18 +219,14 @@ private:
 
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagBitsEXT messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-        void* pUserData
-    ){
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
+        VkDebugUtilsMessageTypeFlagsEXT messageType, 
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, 
+        void* pUserData) 
+    {
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         return VK_FALSE;
     }
-
-
-
-
 
 };
 
