@@ -2,8 +2,10 @@
 Basic Process: 
     1) Initialize window
     2) Create instance
-    3) Set up debug messenger
-    4) Cleanup
+    3) Set up validation layers / debug messenger
+    4) Physical device/queue setup
+    5) Logical device/queue setup
+    6) Cleanup
 */
 
 
@@ -66,6 +68,7 @@ void DestroyDebugUtilsMessengerEXT(
 
 
 class HelloTriangleApplication {
+
 public:
     void run() {
         initWindow();
@@ -74,10 +77,14 @@ public:
         cleanup();
     }
 
+
 private:
     GLFWwindow* window;
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;   //Physical device handle
+    VkDevice device;                                    //Logical device handle
+    VkQueue graphicsQueue;
 
 
     void initWindow(){
@@ -94,6 +101,7 @@ private:
         createInstance();
         setupDebugMessenger();
         pickPhysicalDevice();
+        createLogicalDevice();
     }
 
 
@@ -105,6 +113,8 @@ private:
 
 
     void cleanup() {                //Get rid of all redundant objects explicitly
+        vkDestroyDevice(device, nullptr);
+        
         if(enableValidationLayers){
             DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
         }
@@ -113,7 +123,6 @@ private:
         glfwDestroyWindow(window);
         glfwTerminate();
     }
-
 
     
     /*
@@ -240,7 +249,6 @@ private:
     ////////////////////////////////////////// Physical device block ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
     void pickPhysicalDevice(){
-        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;   //Initialize handle as Vk's null analogue
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);    //get number of devices
 
@@ -293,22 +301,40 @@ private:
     }
 
 
+    void createLogicalDevice(){
+        QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+        queueCreateInfo.queueCount = 1;
+
+        float queuePriority = 1.0f;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+
+        VkPhysicalDeviceFeatures deviceFeatures{};
+
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pQueueCreateInfos = &queueCreateInfo;
+        createInfo.queueCreateInfoCount = 1;
+        createInfo.pEnabledFeatures = &deviceFeatures;
+
+        createInfo.enabledExtensionCount = 0;
+
+        if(enableValidationLayers){
+            createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+            createInfo.ppEnabledLayerNames = validationLayers.data();
+        } else {
+            createInfo.enabledLayerCount = 0;
+        }
 
 
+        if(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS){
+            throw std::runtime_error("Failed to create logical device");
+        }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+        vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+    }
 
 };
 
