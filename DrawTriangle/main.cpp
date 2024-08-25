@@ -1,6 +1,9 @@
 /*
-Basic Process:
-
+Basic Process: 
+    1) Initialize window
+    2) Create instance
+    3) Set up debug messenger
+    4) Cleanup
 */
 
 
@@ -12,10 +15,15 @@ Basic Process:
 #include <cstdlib>
 #include <string.h>
 #include <vector>
+#include <optional>
 
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
+
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+};
 
 
 const std::vector<const char*> validationLayers = {     //Like extensions, validation layers need to be enabled by specifying their name
@@ -85,6 +93,7 @@ private:
     void initVulkan() {
         createInstance();
         setupDebugMessenger();
+        pickPhysicalDevice();
     }
 
 
@@ -152,7 +161,7 @@ private:
             createInfo.ppEnabledExtensionNames = extensions.data();
 
             if(vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS){
-                throw std::runtime_error("failed to create instance");
+                throw std::runtime_error("Failed to create instance");
             }
         }          
     }
@@ -174,7 +183,7 @@ private:
         populateDebugMessengerCreateInfo(createInfo);
 
         if(CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS){
-            throw std::runtime_error("failed to set up debug messenger");
+            throw std::runtime_error("Failed to set up debug messenger");
         }
     }
 
@@ -227,6 +236,79 @@ private:
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         return VK_FALSE;
     }
+
+    ////////////////////////////////////////// Physical device block ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void pickPhysicalDevice(){
+        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;   //Initialize handle as Vk's null analogue
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);    //get number of devices
+
+        if(deviceCount == 0){
+            throw std::runtime_error("Failed to find GPU's with Vulkan support");
+        }
+    
+        std::vector<VkPhysicalDevice> devices(deviceCount);
+        vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());     //Fill vector with device profiles
+
+        for(const auto& device : devices){
+            if(isDeviceSuitable(device)){
+                physicalDevice = device;
+                break;
+            }
+        }
+
+        if(physicalDevice == VK_NULL_HANDLE){
+            throw std::runtime_error("Failed to find a suitable GPU!");
+        }
+    }
+
+
+    bool isDeviceSuitable(VkPhysicalDevice device){
+        QueueFamilyIndices indices = findQueueFamilies(device);
+        return indices.graphicsFamily.has_value();
+    }
+
+
+    //////////////////////////////////////////// Queue Block ///////////////////////////////////////////////////////////////////////////////////////////
+
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device){
+        QueueFamilyIndices indices;
+
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+        int i = 0;
+        for(const auto& queueFamily : queueFamilies){
+            if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT){
+                indices.graphicsFamily = i; //will always get the last valid device index
+            }
+            i++;
+        }
+
+        return indices;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 };
 
