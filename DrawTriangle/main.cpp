@@ -110,6 +110,7 @@ private:
     GLFWwindow* window;
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
+    
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;   //Physical device handle
     VkDevice device;                                    //Logical device handle
     
@@ -118,6 +119,10 @@ private:
 
     VkSurfaceKHR surface;
     VkSwapchainKHR swapChain;
+    std::vector<VkImage> swapChainImages;
+    VkFormat swapChainImageFormat;
+    VkExtent2D swapChainExtent;
+
 
     void initWindow(){
         glfwInit();
@@ -367,7 +372,8 @@ private:
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.pEnabledFeatures = &deviceFeatures;
-        createInfo.enabledExtensionCount = 0;
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+        createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
 
         if(enableValidationLayers){
@@ -473,8 +479,8 @@ private:
             createInfo.pQueueFamilyIndices = queueFamilyIndices;
         } else {
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            createInfo.queueFamilyIndexCount = 0;
-            createInfo.pQueueFamilyIndices = nullptr;
+            //createInfo.queueFamilyIndexCount = 0;
+            //createInfo.pQueueFamilyIndices = nullptr;
         }
 
         createInfo.preTransform = details.capabilities.currentTransform;
@@ -487,8 +493,12 @@ private:
             throw std::runtime_error("Failed to create swap chain");
         }
 
+        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+        swapChainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
 
-
+        swapChainImageFormat = surfaceFormat.format;
+        swapChainExtent = extent;
     }
 
 
@@ -501,7 +511,7 @@ private:
         vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
         if(formatCount != 0){
             details.formats.resize(formatCount);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
         }
 
         uint32_t presentModeCount;
